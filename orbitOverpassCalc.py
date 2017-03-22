@@ -1,57 +1,61 @@
 #orbitOverpassCalc.py sjpestana
-import math, datetime, urllib3, re, sys, json
+import math, datetime, sys, json
 import ephem as e
+import numpy as np
+import matplotlib.pyplot as plt
 
-#set desired lat and lon focus point
-print('Enter lat (N+) and lon (E+) for center point of interest.\nLeave blank for default location.')
+#ask for the latitude and longitude of the point of interest (observation point on Earth's surface)
+print('Enter lat (N+) and lon (E+) for center point of interest.')
 c_lat_in = raw_input('\t\tCenter point latitude: ')
 c_lon_in = raw_input('\t\tCenter point longitude: ')
 if c_lat_in == '' or c_lon_in == '':
 	#if user didn't give an input, default to 47.62, -122.35
 	c_lat = 47.62
 	c_lon = -122.35
-	print('No center point location given, defaulting to 0, 0.')
+	print('\t\tNo center point location given, defaulting to 47.62, -122.35.')
 elif (-90 <= float(c_lat_in) <= 90) and (-180 <= float(c_lon_in) <= 180):
 	#if user gives good input within correct lat and lon ranges
 	c_lat = float(c_lat_in)
 	c_lon = float(c_lon_in)
 else:
 	#abort if bad values input
-	print('longitude (-90 to 90) or latitude (-180 to 180) out of range')
+	print('\t\tLongitude (-90 to 90) or latitude (-180 to 180) out of range')
 	sys.exit()
 
 	
 print('\n')
 	
-#ask user for desired number of days to query (TLE out of date > 30 days out)
+#ask user for the number of days to query (TLE out of date if >> 30 days out)
 print('Enter the number of days from now to search (max: 30 days).\nLeave blank for default of 30 days.')
 n_days = raw_input('\t\tNumber of days: ')
-if n_days > 30 or n_days < 1:
-	print('Number of days input was blank or out of range (1-30), defaulting to 30 days')
+if n_days == '' or int(n_days) not in range(1,31):
+	print('\t\tTnput was blank or out of range (1-30), defaulting to 30.')
 	n_days = 30
+else:
+	n_days = int(n_days)
 
-#ask for the 
-
-print('\n\n\tORBIT OVERPASS CALCULATOR')
-print('================================================')
-print('   Point of interest: lat: %s, lon: %s' % (c_lat,c_lon))
-print('   Days from now to search: %s' % n_days)
-print('================================================\n')
-
-
-with open('TLEs.json') as data_file:    
-    data = json.load(data_file)
-
+filename = 'TLEs.json'
+	
+with open(filename) as data_file:    
+	data = json.load(data_file)
 
 sat_name = str(data['satellite']['name'])
 tle0 = str(sat_name)
 tle1 = str(data['satellite']['TLE']['line_1'])
 tle2 = str(data['satellite']['TLE']['line_2'])
-print("\nLoaded TLE for %s:" % sat_name)
-print("%s\n%s\n" % (tle1,tle2))
-
-
 sat = e.readtle(tle0,tle1,tle2)
+print("\n\tLoaded TLE for %s:" % sat_name)
+print('\tORBIT OVERPASS CALCULATOR')
+print('=====================================================================')
+print("%s\n%s" % (tle1,tle2))
+print('=====================================================================')
+print('   Point of interest: lat: %s, lon: %s' % (c_lat,c_lon))
+print('   Days from now to search: %s' % n_days)
+print('=======================================================================')
+
+
+
+
 
 
 #get current satellite location
@@ -89,20 +93,26 @@ print(border)
 prev_mon = 0
 prev_day = 0
 prev_hr = 0
-table_headers = '  OVERPASS DATE TIME          LAT          LON         SWATH WIDTH(km)'
+table_headers = 'OVERPASS DATE TIME               LAT             LON             SWATH WIDTH(km)'
 border = '-'
 for x in range(0,len(table_headers)-1):
 	border = '-' + border
 print(border)
 print(table_headers)
 
+
+#start the count of unique sat overpasses
+p = 1
+
 for i in range(0,(n_days*24*60*60)): #number of seconds in n_days
 	#compute for every minute for the next n_days from right now
 	fordate = datetime.datetime.utcnow()+datetime.timedelta(seconds=i)
 	sat.compute(fordate)
+
 	
 	#calculate actual swath width based on sat orbit height
-	swath_w = (sat.elevation/1000)*(math.tan(math.radians(25.5)))*2
+	elev = sat.elevation #meters
+	swath_w = (elev/1000)*(math.tan(math.radians(50)))*2
 	
 	#ECOSTRESS swath width ~384 km (ISS altitude 400 +/- 25 km)
 	#ECOSTRESS FOV 51deg
@@ -134,27 +144,30 @@ for i in range(0,(n_days*24*60*60)): #number of seconds in n_days
 	lon_deg = float(lon_split[0])
 	lon_min = float(lon_split[1])
 	lon_sec = float(lon_split[2])
-	lon_float = lon_deg + (lon_min/60) + (lon_sec/3600)
-	
-	#print(round(min_lat,2),round(max_lat,2),round(min_lon,2),round(max_lon,2),swath_w)
-	
+	if lon_deg < 0:
+		lon_float = lon_deg - (lon_min/60) - (lon_sec/3600)
+	else:
+		lon_float = lon_deg + (lon_min/60) + (lon_sec/3600)
+
 	#check to see if the sat will overfly anywhere within the area described above
 	if math.floor(min_lat) < int(lat_float) < math.ceil(max_lat):
 		if math.floor(min_lon) < int(lon_float) < math.ceil(max_lon):
-	##if 8.7 < int(lat_float) < 12.3:
-		##if -87.8 < int(lon_float) < -83.2:
 			#then sat is covering this area
-			#get only unique sat overpasses
+			#count number of unique sat overpasses
 			curr_mon = int(fordate.month)
 			curr_day = int(fordate.day)
 			curr_hr = int(fordate.hour)
-			if curr_mon == prev_mon and curr_day == prev_day and curr_hr == prev_hr:
-				pass
+			curr_min = int(fordate.minute)
+			if curr_mon == prev_mon and curr_day == prev_day and curr_hr == prev_hr and abs(curr_min - prev_min) < 5:
+				p = p
 			else:
-				print('%s\t %s\t %s\t %s \n' % (fordate, lat_float, lon_float, swath_w))
-				#set the current month,day,hour to previous before moving on
-				prev_mon = curr_mon
-				prev_day = curr_day
-				prev_hr = curr_hr
-
-
+				p += 1
+				print(p, curr_day, curr_hr, curr_min)
+			#print('%s\t %s\t %s\t %s \n' % (fordate, lat_float, lon_float, elev))
+			#print(fordate)
+			print('%s,%s,%s' % (lon_float,lat_float,elev))
+			#set the current month,day,hour to previous before moving on
+			prev_mon = curr_mon
+			prev_day = curr_day
+			prev_hr = curr_hr
+			prev_min = curr_min

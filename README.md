@@ -1,2 +1,2 @@
 # orbit-calcs
-learning pyEphem and ISS orbit overpass prediction
+learning pyEphem with satellite orbit overpass prediction, visualizing orbits in Google Earth
