@@ -15,7 +15,7 @@ def readTLEs():
 	for x in data['satellites']:
 		print(' - %s' % x)
 	
-	name = str(raw_input('\nEnter name of satellite to load: '))
+	name = str(input('\nEnter name of satellite to load: '))
 	
 	tle0 = name
 	tle1 = str(data['satellites'][name]['TLE1'])
@@ -29,8 +29,8 @@ def readTLEs():
 def getPOI():
 	#ask for the latitude and longitude of the point of interest (observation point on Earth's surface)
 	print('Enter lat (N+) and lon (E+) for center point of interest.')
-	c_lat_in = raw_input('\t\tCenter point latitude: ')
-	c_lon_in = raw_input('\t\tCenter point longitude: ')
+	c_lat_in = input('\t\tCenter point latitude: ')
+	c_lon_in = input('\t\tCenter point longitude: ')
 	if c_lat_in == '' or c_lon_in == '':
 		#if user didn't give an input, default to 47.62, -122.35
 		c_lat = 47.62
@@ -50,7 +50,7 @@ def getPOI():
 def getTime():	
 	#ask user for the number of days to query (TLE out of date if >> 30 days out)
 	print('Enter the number of days from now to search (max: 30 days).\nLeave blank for default of 1 day.')
-	n_days = raw_input('\t\tNumber of days: ')
+	n_days = input('\t\tNumber of days: ')
 	if n_days == '' or int(n_days) not in range(1,31):
 		print('\t\tTnput was blank or out of range (1-30), defaulting to 1.')
 		n_days = 1
